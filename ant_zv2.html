@@ -1,0 +1,198 @@
+<!-- From these files make a html file with java support that calculates antenna efficiency, radiation resistance.
+Add a super-precise option for calculations by numerical integration according to Eq 9.27 from L09_Dipole.pdf. 
+Have a drop down for wire conductivity of copper, aluminum and steel and have it linked to the appropriate magnetic permeability for each material and have an option to use free space.
+Include a drop down for the selection of the wire diameter from wire gauge 6 to 24 using the wire gauge table of AWG wire sizes from https://en.wikipedia.org/wiki/American_wire_gauge.
+
+modify code for modular code separation and make Super-precise option update the calculations when selected.
+
+calculate and display radiation pattern for the antenna 
+Calculate effective radiated power(ERP) with an an option to convert output units into Watts, dBm dBW, dBV, and the ERP at the determined maximum radiation intesity, include the magnitude and angle of the maximum directivity and the antenna gain
+calculate the the bandwidth of the antenna
+
+Have a selectable option for monopoles, folded, and halfwave dipoles and calculate the antenna efficiency, radiation resistance and Standing wave ratio for each. 
+
+Allow for an input of transmitter power in watts but if left blank or 0 calculate the maximum transmitter power the antenna can handle before breaking using the wire gauge table of AWG wire sizes from https://en.wikipedia.org/wiki/American_wire_gauge.
+
+include visualizations for Radiation Resistance vs antenna Length, VSWR vs antenna Length and ERP VS antenna length limit antenna lenghth displayed to 4 times the antenna length .
+Have a transmission line type dropdown with 10 most common types with an input for length in meters for calculation of line loss and selection of transmission line impedance.
+
+
+
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Advanced Antenna Calculator</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="container my-4">
+    <h1>Advanced Antenna Calculator</h1>
+    <form id="antennaForm">
+        <div class="row">
+            <!-- Antenna Type -->
+            <div class="col-md-4 mb-3">
+                <label for="antennaType" class="form-label">Antenna Type</label>
+                <select id="antennaType" class="form-select">
+                    <option value="halfwave">Half-wave Dipole</option>
+                    <option value="monopole">Monopole</option>
+                    <option value="folded">Folded Dipole</option>
+                </select>
+            </div>
+            <!-- Bandwidth calculation type, shown below results -->
+        </div>
+        <div class="row">
+            <!-- Wire properties -->
+            <div class="col-md-4 mb-3">
+                <label for="wireMaterial" class="form-label">Wire Material</label>
+                <select id="wireMaterial" class="form-select">
+                    <option value="copper">Copper (μ=1.26e-6 H/m)</option>
+                    <option value="aluminum">Aluminum (μ=1.26e-6 H/m)</option>
+                    <option value="steel">Steel (μ=4.0e-6 H/m)</option>
+                    <option value="freeSpace">Free Space (μ=1.26e-6 H/m)</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="wireGauge" class="form-label">Wire Gauge</label>
+                <select id="wireGauge" class="form-select">
+                    <!-- Populate with all AWG from 6 to 24 (values yield diameter in mm or inches) -->
+                    <!-- e.g. <option value="0.4049">6 AWG (4.115 mm)</option> -->
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <!-- Transmission line properties -->
+            <div class="col-md-4 mb-3">
+                <label for="txLineType" class="form-label">Transmission Line Type</label>
+                <select id="txLineType" class="form-select">
+                    <option value="rg58">RG-58 (Commercial, 50Ω)</option>
+                    <option value="rg213">RG-213 (Amateur, 50Ω)</option>
+                    <option value="rg8">RG-8 (Commercial, 50Ω)</option>
+                    <option value="twinlead">300Ω Twin Lead</option>
+                    <option value="ladderLine">450Ω Ladder Line</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="txLineLength" class="form-label">Transmission Line Length (m)</label>
+                <input type="number" id="txLineLength" class="form-control" min="0" step="0.01" value="10">
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="txLineImpedance" class="form-label">Transmission Line Impedance (Ω)</label>
+                <input type="number" id="txLineImpedance" class="form-control" min="10" step="0.01" value="50">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label for="antennaLength" class="form-label">Antenna Length (m)</label>
+                <input type="number" id="antennaLength" class="form-control" min="0.01" step="0.01" value="2.4">
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="frequency" class="form-label">Frequency (MHz)</label>
+                <input type="number" id="frequency" class="form-control" min="1" step="0.1" value="100">
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="txPower" class="form-label">Transmitter Power (W)</label>
+                <input type="number" id="txPower" class="form-control" min="0.01" step="0.01" value="100">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label for="calcPrecision" class="form-label">Calculation Precision</label>
+                <select id="calcPrecision" class="form-select">
+                    <option value="standard">Standard</option>
+                    <option value="superprecise">Super-Precise (Numerical integration, Eq 9.27)</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="maxTxPower" class="form-label">Calculate Max Transmitter Power</label>
+                <input type="checkbox" id="maxTxPower" class="form-check-input">
+            </div>
+        </div>
+        <div class="row">
+            <!-- Output unit choice -->
+            <div class="col-md-4 mb-3">
+                <label for="erpUnits" class="form-label">ERP Output Units</label>
+                <select id="erpUnits" class="form-select">
+                    <option value="watts">Watts</option>
+                    <option value="dbm">dBm</option>
+                    <option value="dbw">dBW</option>
+                    <option value="dbv">dBV</option>
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Calculate</button>
+    </form>
+
+    <!-- Results Section -->
+    <div id="results" class="mt-4">
+        <h3>Results</h3>
+        <p id="efficiency"></p>
+        <p id="radiationResistance"></p>
+        <p id="vswr"></p>
+        <p id="erp"></p>
+        <p id="maxDirectivity"></p>
+        <p id="directivityAngle"></p>
+        <p id="antennaBandwidth"></p>
+        <p id="maxTxPowerResult"></p>
+    </div>
+
+    <!-- Visualizations -->
+    <div class="row">
+        <div class="col-md-4">
+            <h5>Radiation Resistance vs Length</h5>
+            <canvas id="radResChart"></canvas>
+        </div>
+        <div class="col-md-4">
+            <h5>VSWR vs Antenna Length</h5>
+            <canvas id="vswrChart"></canvas>
+        </div>
+        <div class="col-md-4">
+            <h5>ERP vs Antenna Length</h5>
+            <canvas id="erpChart"></canvas>
+        </div>
+    </div>
+</div>
+<script>
+// TODO: Populate wireGauge dynamically with AWG numbers and diameters
+// TODO: On form submit, calculate quantities according to selected equations,
+// including super-precise integration (Eq 9.27: refer to L09_Dipole.pdf).
+// TODO: Plot Radiation Resistance, VSWR, and ERP vs antenna length using Chart.js.
+// TODO: Implement ERP calculations in multiple units.
+// TODO: Calculate bandwidth depending on antenna type (use approximations).
+
+// Example: On form submit
+document.getElementById('antennaForm').onsubmit = function (e) {
+    e.preventDefault();
+    // Collect input values
+    const antennaType = document.getElementById('antennaType').value;
+    const wireMaterial = document.getElementById('wireMaterial').value;
+    const wireGauge = document.getElementById('wireGauge').value; // diameter in mm
+    const txLineType = document.getElementById('txLineType').value;
+    const txLineLength = parseFloat(document.getElementById('txLineLength').value);
+    const txLineImpedance = parseFloat(document.getElementById('txLineImpedance').value);
+    const antennaLength = parseFloat(document.getElementById('antennaLength').value);
+    const frequency = parseFloat(document.getElementById('frequency').value);
+    const txPower = parseFloat(document.getElementById('txPower').value);
+    const calcPrecision = document.getElementById('calcPrecision').value;
+    const erpUnits = document.getElementById('erpUnits').value;
+    const maxTxPowerSelected = document.getElementById('maxTxPower').checked;
+
+    // Sample calculation placeholders:
+    // TODO: Calculate using your own JS or backend functions
+    document.getElementById('efficiency').innerText = "Antenna efficiency: ...";
+    document.getElementById('radiationResistance').innerText = "Radiation resistance: ...";
+    document.getElementById('vswr').innerText = "VSWR: ...";
+    document.getElementById('erp').innerText = "ERP: ...";
+    document.getElementById('maxDirectivity').innerText = "Maximum directivity: ...";
+    document.getElementById('directivityAngle').innerText = "Angle of maximum directivity: ...";
+    document.getElementById('antennaBandwidth').innerText = "Estimated bandwidth: ...";
+    document.getElementById('maxTxPowerResult').innerText = maxTxPowerSelected ? "Max TX power calculation: ..." : "";
+
+    // TODO: Update charts
+};
+</script>
+</body>
+</html>
